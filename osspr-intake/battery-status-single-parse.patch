@@ -1,0 +1,57 @@
+--- a/bin/omarchy-battery-status
++++ b/bin/omarchy-battery-status
+@@ -52,13 +52,25 @@
+ done < <(upower -e 2>/dev/null | grep '/battery_')
+ [[ -z $battery ]] && exit 0
+ 
+-percentage=$(awk '/percentage/ { print int($2); exit }' <<<"$battery_info")
+-capacity=$(awk '/energy-full:/ { printf "%d", $2; exit }' <<<"$battery_info")
+-energy=$(awk '/^ *energy:/ { print $2; exit }' <<<"$battery_info")
+-energy_full=$(awk '/energy-full:/ { print $2; exit }' <<<"$battery_info")
+-upower_hours=$(awk '/time to (empty|full)/ { print ($5 ~ /^minute/ ? $4 / 60 : $4); exit }' <<<"$battery_info")
+-power_rate_raw=$(awk '/energy-rate/ { print $2; exit }' <<<"$battery_info")
+-native_path=$(awk '/native-path/ { print $2; exit }' <<<"$battery_info")
++# One awk reads the upower record. The fields used to be a separate awk each,
++# and the power panel runs this on its refresh.
++# A non-whitespace separator, so an empty field stays empty. Tab is IFS
++# whitespace and read would collapse it.
++IFS='|' read -r percentage capacity energy energy_full upower_hours power_rate_raw native_path state threshold_start threshold_end < <(awk '
++  !seen_energy && /^ *energy:/ { energy = $2; seen_energy = 1 }
++  !seen_full && /energy-full:/ { capacity = int($2); energy_full = $2; seen_full = 1 }
++  !seen_pct && /percentage/ { percentage = int($2); seen_pct = 1 }
++  !seen_rate && /energy-rate/ { rate = $2; seen_rate = 1 }
++  !seen_path && /native-path/ { path = $2; seen_path = 1 }
++  !seen_time && /time to (empty|full)/ { hours = ($5 ~ /^minute/ ? $4 / 60 : $4); seen_time = 1 }
++  !seen_state && /^ *state:/ { state = $2; seen_state = 1 }
++  !seen_tstart && /charge-start-threshold:/ { gsub(/%/, "", $2); tstart = int($2); seen_tstart = 1 }
++  !seen_tend && /charge-end-threshold:/ { gsub(/%/, "", $2); tend = int($2); seen_tend = 1 }
++  END {
++    printf "%s|%s|%s|%s|%s|%s|%s|%s|%s|%s\n",
++      percentage, capacity, energy, energy_full, hours, rate, path, state, tstart, tend
++  }
++' <<<"$battery_info")
+ battery_path="$power_supply_path/$native_path"
+ 
+ # A sysfs reading as a number, or nothing. Firmware that doesn't know the
+@@ -82,15 +94,12 @@
+ 
+ # Some kernels sign power_now by direction (negative while discharging on
+ # Apple Silicon); the state field already says which way it flows.
+-power_rate=$(awk -v rate="${power_rate_raw:-0}" 'BEGIN {
+-  if (rate < 0) rate = -rate
+-  rounded = sprintf("%.1f", rate)
+-  sub(/\.0$/, "", rounded)
+-  print rounded
+-}')
+-state=$(awk '/state/ { print $2; exit }' <<<"$battery_info")
+-threshold_start=$(awk '/charge-start-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
+-threshold_end=$(awk '/charge-end-threshold:/ { gsub(/%/, "", $2); print int($2); exit }' <<<"$battery_info")
++# Builtin printf, same "%.1f" then drop a trailing .0, without another awk.
++_abs_rate=${power_rate_raw:-0}
++[[ $_abs_rate == -* ]] && _abs_rate=${_abs_rate#-}
++power_rate=$(printf '%.1f' "$_abs_rate")
++power_rate=${power_rate%.0}
++unset _abs_rate
+ 
+ # Read the thresholds from the battery UPower resolved rather than a BAT* glob,
+ # which misses every battery with another name.

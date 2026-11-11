@@ -1,0 +1,9 @@
+# What else was timed
+
+These were measured on the same machine and do not clear a 10 ms saving outside the noise, or the cost was this VM rather than Omarchy. No patch.
+
+- `bin/omarchy theme current` versus `bin/omarchy-theme-current` direct. Router median 7.48 ms, direct 2.18 ms, delta about 5 ms. Under 10 ms. The fast path already skips the metadata table.
+- `omarchy-audio-output-volume +5` with an instant `pactl` stub (ALSA default sink, 50%) and an instant `omarchy-osd` stub. Median 11.46 ms for the whole command, range 2.01 ms. The main volume keys already run in the shell. Precise Alt+volume still runs this script and repeats, but the script overhead left after the stubs is too small to cut 10 ms, and real PipeWire was not here to time.
+- Menu guard batch (`MenuModel.guardScript` on `default/omarchy/omarchy-menu.jsonc`, `bash -c`, clean `HOME`). About 118 ms, range 2.5 ms, with no pacman and no mimeapps. `omarchy-cmd-default-browser` was 22 ms because it fell through to `xdg-settings`. With a mimeapps hit for an installed desktop file it was 3.92 ms and did not call `xdg-settings`. The other guard commands that showed up under strace (`omarchy-dns`, screen-recording status, `omarchy-bar get`, `systemctl is-enabled`) were each under 10 ms once strace was out of the way. The batch is already eight parallel groups and a cached package snapshot on a real install. No single cut of 10 ms was measured on that fast path.
+- `bash -lc true` was about 147 ms here. The trace lands in `~/.bashrc` sourcing nvm. `default/bash/env-bootstrap` sourced on its own was 1.48 ms. The menu's `bash -lc` is not, on Omarchy's own startup file, a 100 ms bug.
+- `omarchy-system-stats --bar-widget` was about 3.5 ms and prints `/proc` counters, not the `cpu\tN%` line. Noted only because it shows `/proc` is cheap. The panel does not read either form. See `power-panel-unused-system-stats.md`.

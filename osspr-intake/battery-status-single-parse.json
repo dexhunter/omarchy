@@ -1,0 +1,73 @@
+{
+  "target": "battery-status-single-parse",
+  "file": "bin/omarchy-battery-status",
+  "function": "field parsers after the upower -i loop, and the wattage rounding awk",
+  "hot_path": "Power panel refresh, every 5s while the panel is open, via omarchy-battery-status --shell. The output is displayed. Not a bar tick or a keypress.",
+  "why_hot": "The same timer that starts the unused top probe. This one fills the battery rows.",
+  "benchmark_command": "OMARCHY_PATH=<checkout> OMARCHY_POWER_SUPPLY_PATH=<stub>/power PATH=<stub>/bin:<checkout>/bin:$PATH bin/omarchy-battery-status --shell",
+  "benchmark_script": "osspr-intake/bench.sh",
+  "stubs": [
+    "upower is a bash stub copied from test/shell.d/battery-status-test.sh (mouse battery, then macsmc-battery). It returns immediately. Real upower D-Bus was not measured.",
+    "sysfs is a temp directory of power_now, charge thresholds and cycle_count, via OMARCHY_POWER_SUPPLY_PATH."
+  ],
+  "host": {
+    "cpu": "Intel(R) Xeon(R) Processor",
+    "arch": "x86_64",
+    "nproc": 4
+  },
+  "runs": 12,
+  "pairing": "alternating baseline and patched so load is shared",
+  "baseline_ms": {
+    "median": 31.67,
+    "mean": 31.29,
+    "min": 28.02,
+    "max": 33.12,
+    "range": 5.10,
+    "noise_percent": 16.30
+  },
+  "after_ms": {
+    "median": 19.39,
+    "mean": 19.54,
+    "min": 18.54,
+    "max": 20.60,
+    "range": 2.06
+  },
+  "saving_ms": 12.29,
+  "distributions_overlap": false,
+  "beats_noise": true,
+  "confirmation_12_pairs": {
+    "baseline_median": 32.08,
+    "baseline_range": 4.59,
+    "after_median": 19.48,
+    "after_range": 3.20,
+    "saving_ms": 12.60,
+    "distributions_overlap": false,
+    "stdout_mismatches": 0
+  },
+  "bench_sh_note": "One 8-pair bench.sh run immediately after the top timings had a single patched sample at 46ms and the sets overlapped. The median delta was still about 13ms.",
+  "forks_per_call": {
+    "before_execve": 24,
+    "after_execve": 14,
+    "awk_before": 14
+  },
+  "stdout_mismatches": 0,
+  "patch": "osspr-intake/battery-status-single-parse.patch",
+  "tests": [
+    {
+      "command": "bash test/shell.d/battery-status-test.sh",
+      "result": "pass",
+      "target": "unmodified script"
+    },
+    {
+      "command": "bash /tmp/battery-status-fast-test.sh",
+      "result": "pass",
+      "target": "patched script, same assertions, ROOT still this checkout"
+    }
+  ],
+  "avoided": {
+    "commits_since": "2026-11-04",
+    "file_in_recent_commits": false,
+    "open_prs": "First page of open omacom/omarchy PR titles on 2026-11-11 did not mention battery-status. Per-file diffs were not re-fetched after API credentials failed."
+  },
+  "dhh_acceptance": "Unlikely. The saving clears 10ms and the noise band on a stubbed upower, but the panel polls every 5s and a real upower call was not in the measurement. The diff rewrites a parser. Prefer the unread top probe."
+}

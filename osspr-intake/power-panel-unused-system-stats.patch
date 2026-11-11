@@ -1,0 +1,38 @@
+--- a/shell/plugins/panels/power/Panel.qml
++++ b/shell/plugins/panels/power/Panel.qml
+@@ -15,7 +15,6 @@
+   // permits — needed for the togglePercentage method below.
+   manageIpc: false
+   property var batteryInfo: ({})
+-  property var systemInfo: ({})
+   property var profiles: []
+   property string activeProfile: ""
+   property int profileIndex: 0
+@@ -144,7 +143,6 @@
+ 
+     if (!batteryProc.running) batteryProc.running = true
+     if (!profilesProc.running) profilesProc.running = true
+-    if (!systemProc.running) systemProc.running = true
+   }
+ 
+   function updateKeyValue(raw, targetName) {
+@@ -153,7 +151,6 @@
+     // around AC plug/unplug events. Avoids the section collapsing mid-transition.
+     if (Object.keys(next).length === 0) return
+     if (targetName === "battery") batteryInfo = next
+-    else systemInfo = next
+   }
+ 
+   function updateProfiles(raw) {
+@@ -227,11 +224,6 @@
+     stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateProfiles(text) }
+   }
+ 
+-  Process {
+-    id: systemProc
+-    command: ["omarchy-system-stats"]
+-    stdout: StdioCollector { waitForEnd: true; onStreamFinished: root.updateKeyValue(text, "system") }
+-  }
+ 
+   Process {
+     id: actionProc

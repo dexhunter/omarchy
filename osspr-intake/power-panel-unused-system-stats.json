@@ -1,0 +1,55 @@
+{
+  "target": "power-panel-unused-system-stats",
+  "file": "shell/plugins/panels/power/Panel.qml",
+  "function": "refresh / systemProc",
+  "script": "bin/omarchy-system-stats",
+  "hot_path": "Every 5s while the power panel is open, and on each open. Not a bar tick or a keypress. The only production caller of omarchy-system-stats.",
+  "why_hot": "The panel timer is interval 5000 and running while opened. Each tick starts top -bn1, which sleeps 100ms twice, and the QML stores the text in systemInfo, which no file reads.",
+  "benchmark_command": "OMARCHY_PATH=/workspace /workspace/bin/omarchy-system-stats",
+  "benchmark_script": "osspr-intake/bench.sh",
+  "stubs": [],
+  "host": {
+    "cpu": "Intel(R) Xeon(R) Processor",
+    "arch": "x86_64",
+    "nproc": 4,
+    "process_count": 33
+  },
+  "runs": 8,
+  "baseline_ms": {
+    "median": 207.60,
+    "mean": 207.73,
+    "min": 207.33,
+    "max": 208.40,
+    "range": 1.06,
+    "noise_percent": 0.51
+  },
+  "top_bn1_ms": {
+    "median": 204.46,
+    "range": 0.69
+  },
+  "forks_per_call": {
+    "before": 4,
+    "commands": ["omarchy-system-stats", "top", "awk", "awk"],
+    "after": 0
+  },
+  "after_ms": {
+    "median": 0,
+    "note": "The patch removes the only production caller. The command was not rewritten and was not re-timed as a faster command. Quickshell is not installed, so the patched panel was not executed."
+  },
+  "saving_ms": 207.60,
+  "beats_noise": true,
+  "patch": "osspr-intake/power-panel-unused-system-stats.patch",
+  "tests": [
+    {
+      "command": "bash test/shell.d/system-stats-test.sh",
+      "result": "pass",
+      "note": "Covers top's locale parsing. The command is unchanged, so this stays green. No test asserts the panel spawns the command."
+    }
+  ],
+  "avoided": {
+    "commits_since": "2026-11-04",
+    "file_in_recent_commits": false,
+    "open_prs": "First page of open omacom/omarchy PR titles on 2026-11-11 did not mention this panel. Per-file diffs were not re-fetched after API credentials failed."
+  },
+  "dhh_acceptance": "Reasonable. One deletion of an unread poll whose cost is two 100ms sleeps inside top. He might rather render the CPU line, which is a different change and should not keep top -bn1."
+}
